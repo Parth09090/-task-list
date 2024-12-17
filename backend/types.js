@@ -7,7 +7,7 @@ const todoSchema = z.object({
 })
 
 const updatetodoSchema = z.object({
-    _id : z.string()
+    id : z.string()
 })
 
 module.exports = {

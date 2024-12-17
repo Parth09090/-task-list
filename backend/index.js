@@ -1,10 +1,12 @@
 const express = require("express");
+const mongoose = require('mongoose'); 
+const cors = require("cors")
 const { todoSchema, updatetodoSchema } = require("./types");
 const { todo } = require("./db");
 const app = express();
 
 app.use(express.json());
-
+app.use(cors());
 app.get("/todos",async(req,res)=>{
     const todos = await todo.find({});
     res.json({todos});
@@ -36,8 +38,8 @@ app.post("/todo",async(req,res)=>{
 
 });
 
-app.put("/updateTodo",async(req,res)=>{
-    const bodyPayload = req.body;
+app.put("/updateTodo/:id",async(req,res)=>{
+    const bodyPayload = req.params;
     const parsedPayload = updatetodoSchema.safeParse(bodyPayload);
     if(!parsedPayload.success){
         res.status(411).json({
@@ -47,7 +49,7 @@ app.put("/updateTodo",async(req,res)=>{
     }
     // Find and toggle the current status
     const updatedTodo = await todo.findByIdAndUpdate(
-        bodyPayload._id,
+        bodyPayload.id,
         { $set: { status: !bodyPayload.status } }, // Toggle the status
     );
 
@@ -66,30 +68,40 @@ app.put("/updateTodo",async(req,res)=>{
 });
 
 //delete functionality
-app.delete("/delete" ,async(req,res)=>{
-    const bodyPayload = req.body;
-    const parsedPayload = updatetodoSchema.safeParse(bodyPayload);
-    if(!parsedPayload.success){
-        res.status(411).json({
-            msg :"Invalid inputs"
-        });
-        return;
-    }
-    // // Convert string id to ObjectId using `new`
-    // const objectId = new mongoose.Types.ObjectId(bodyPayload.id);
+app.delete("/delete/:id", async (req, res) => {
+    try {
+        const { id } = req.params; // Extract the id from params
+        console.log("Received ID for deletion:", id);
 
-    const deleteTodo = await todo.findByIdAndDelete(bodyPayload._id);
-    if (!deleteTodo) {
-        res.status(404).json({
-            msg: "Todo not found",
-        });
-        return;
-    }
+        // Validate if the ID is a valid MongoDB ObjectId
+        if (!mongoose.isValidObjectId(id)) {
+            return res.status(400).json({
+                msg: "Invalid ID format",
+            });
+        }
 
-    res.status(200).json({
-        msg: "Todo deleted successfully",
-        deletedTodo: deleteTodo,
-    });
-})
+        // Find and delete the todo
+        const deleteTodo = await todo.findByIdAndDelete(id);
+
+        // If no document was found to delete
+        if (!deleteTodo) {
+            return res.status(404).json({
+                msg: "Todo not found",
+            });
+        }
+
+        // Send success response
+        res.status(200).json({
+            msg: "Todo deleted successfully",
+            deletedTodo: deleteTodo,
+        });
+    } catch (err) {
+        // Log the error and send internal server error response
+        console.error("Error deleting todo:", err);
+        res.status(500).json({
+            msg: "Internal Server Error",
+        });
+    }
+});
 
 app.listen(3000, () => console.log("Server running on port 3000"));
